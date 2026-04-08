@@ -49,4 +49,5 @@ volumes:
   mysql_data:
 
 networks:
-  two-tier-nt;
+  two-tier-nt:
+    driver: bridge
