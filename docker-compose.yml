@@ -39,7 +39,7 @@ services:
         condition: service_healthy
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://13.220.183.108:5000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://3.95.187.0:5000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
