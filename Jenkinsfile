@@ -9,7 +9,6 @@ pipeline {
     }
 
     stages {
-
         stage('Clone Repo') {
             steps {
                 git branch: 'main', url: 'https://github.com/kbsingh10/DevOps-Project01-Two-Tier-Flask-App.git'
@@ -29,28 +28,25 @@ pipeline {
                 echo 'Copying files and deploying on app-server...'
                 sshagent(['app-server-key']) {
                     sh """
-                        # Create deploy directory
+                        # 1. Create deploy directory using sudo, then grant ownership to the ubuntu user
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} \
-                            'mkdir -p ${DEPLOY_PATH}'
+                            "sudo mkdir -p ${DEPLOY_PATH} && sudo chown -R ${DEPLOY_USER}:${DEPLOY_USER} ${DEPLOY_PATH}"
 
-                        # Copy all project files to app-server
-                        scp -o StrictHostKeyChecking=no -r \
-                            . \
-                            ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/
+                        # 2. Copy all project files to app-server (will succeed now that permissions are fixed)
+                        scp -o StrictHostKeyChecking=no -r . ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/
 
-                        # Run docker compose on app-server
-                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} '
+                        # 3. Run docker compose on app-server (using double quotes so Jenkins environment variables expand correctly)
+                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} "
                             cd ${DEPLOY_PATH}
-                            docker compose down || true
-                            docker compose up -d --build
-                            echo "Running containers:"
-                            docker ps
-                        '
+                            sudo docker compose down || true
+                            sudo docker compose up -d --build
+                            echo 'Running containers:'
+                            sudo docker ps
+                        "
                     """
                 }
             }
         }
-
     }
 
     post {
