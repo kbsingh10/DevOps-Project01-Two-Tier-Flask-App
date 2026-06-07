@@ -31,31 +31,32 @@ pipeline {
                         credentialsId: 'app-server-key',
                         keyFileVariable: 'SSH_KEY'
                     )]) {                   
-                        sh """
-                            # 1. Compress the workspace locally, completely ignoring the troublesome .git folder
-                            tar --exclude='.git' -czf app.tar.gz .
+                        // Using single quotes (''') prevents Groovy interpolation and secures your SSH_KEY
+                        sh '''
+                            # 1. Compress workspace securely, ignoring the archive itself and suppressing live log write warnings
+                            tar --exclude='.git' --exclude='app.tar.gz' --warning=no-file-changed -czf app.tar.gz .
 
                             # 2. Ensure remote directory exists and is clean
-                            ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} \
-                                "sudo mkdir -p ${DEPLOY_PATH} && sudo chown -R ${DEPLOY_USER}:${DEPLOY_USER} ${DEPLOY_PATH}"
+                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_USER"@"$DEPLOY_SERVER" \
+                                "sudo mkdir -p \"$DEPLOY_PATH\" && sudo chown -R $DEPLOY_USER:$DEPLOY_USER \"$DEPLOY_PATH\""
 
-                            # 3. Copy the single archive file (much faster than recursive scp)
-                            scp -i ${SSH_KEY} -o StrictHostKeyChecking=no app.tar.gz ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/
+                            # 3. Copy the single archive file
+                            scp -i "$SSH_KEY" -o StrictHostKeyChecking=no app.tar.gz "$DEPLOY_USER"@"$DEPLOY_SERVER":"$DEPLOY_PATH"/
 
                             # 4. Extract archive, clean up, and start docker compose remotely
-                            ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} "
-                                cd ${DEPLOY_PATH}
+                            ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_USER"@"$DEPLOY_SERVER" "
+                                cd \"$DEPLOY_PATH\"
                                 tar -xzf app.tar.gz && rm app.tar.gz
                                 sudo docker compose down || true
                                 sudo docker compose up -d --build
                                 echo 'Running containers:'
                                 sudo docker ps
                             "
-                        """
+                        '''
                     }
                 }
             }
-        } // Closed the stage block correctly
+        }
     } // Added missing stages closing block
 
     post {
