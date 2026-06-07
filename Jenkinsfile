@@ -15,7 +15,7 @@ pipeline {
             }
         }
 
-        stage('Build Image') {
+        stage('Build Image Local') {
             steps {
                 echo 'Building Flask Docker image on worker...'
                 sh 'docker build -t ${APP_NAME}:${BUILD_NUMBER} .'
@@ -25,34 +25,38 @@ pipeline {
 
         stage('Deploy to App Server') {
             steps {
-                echo 'Copying files and deploying on app-server...'
-            script {
+                echo 'Bundling and deploying files on app-server...'
+                script {
                     withCredentials([sshUserPrivateKey(
-                    credentialsId: 'app-server-key',     // ← Your credential ID
-                    keyFileVariable: 'SSH_KEY'
-                )]) {                   
-                    
-                     sh """
-                        # 1. Create deploy directory using sudo, then grant ownership to the ubuntu user
-                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} \
-                            "sudo mkdir -p ${DEPLOY_PATH} && sudo chown -R ${DEPLOY_USER}:${DEPLOY_USER} ${DEPLOY_PATH}"
+                        credentialsId: 'app-server-key',
+                        keyFileVariable: 'SSH_KEY'
+                    )]) {                   
+                        sh """
+                            # 1. Compress the workspace locally, completely ignoring the troublesome .git folder
+                            tar --exclude='.git' -czf app.tar.gz .
 
-                        # 2. Copy all project files to app-server (will succeed now that permissions are fixed)
-                        scp -o StrictHostKeyChecking=no -r . ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/
+                            # 2. Ensure remote directory exists and is clean
+                            ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} \
+                                "sudo mkdir -p ${DEPLOY_PATH} && sudo chown -R ${DEPLOY_USER}:${DEPLOY_USER} ${DEPLOY_PATH}"
 
-                        # 3. Run docker compose on app-server (using double quotes so Jenkins environment variables expand correctly)
-                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} "
-                            cd ${DEPLOY_PATH}
-                            sudo docker compose down || true
-                            sudo docker compose up -d --build
-                            echo 'Running containers:'
-                            sudo docker ps
-                        "
-                    """
+                            # 3. Copy the single archive file (much faster than recursive scp)
+                            scp -i ${SSH_KEY} -o StrictHostKeyChecking=no app.tar.gz ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/
+
+                            # 4. Extract archive, clean up, and start docker compose remotely
+                            ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} "
+                                cd ${DEPLOY_PATH}
+                                tar -xzf app.tar.gz && rm app.tar.gz
+                                sudo docker compose down || true
+                                sudo docker compose up -d --build
+                                echo 'Running containers:'
+                                sudo docker ps
+                            "
+                        """
+                    }
                 }
-            
-        }
-    }
+            }
+        } // Closed the stage block correctly
+    } // Added missing stages closing block
 
     post {
         always {
