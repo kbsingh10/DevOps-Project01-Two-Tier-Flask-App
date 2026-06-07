@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, jsonify
 from flask_mysqldb import MySQL
 
 app = Flask(__name__)
@@ -27,20 +27,20 @@ def init_db():
 
 @app.route('/')
 def hello():
-    cur = mysql.connection.cursor()
-    cur.execute('SELECT message FROM messages')
-    messages = cur.fetchall()
-    cur.close()
-    return render_template('index.html', messages=messages)
+    # Cleaned up: No database calls here to keep your home screen completely clear
+    return render_template('index.html')
 
 @app.route('/submit', methods=['POST'])
 def submit():
     new_message = request.form.get('new_message')
-    cur = mysql.connection.cursor()
-    cur.execute('INSERT INTO messages (message) VALUES (%s)', [new_message])
-    mysql.connection.commit()
-    cur.close()
-    return jsonify({'message': new_message})
+    if new_message:
+        cur = mysql.connection.cursor()
+        cur.execute('INSERT INTO messages (message) VALUES (%s)', [new_message])
+        mysql.connection.commit()
+        cur.close()
+        # Returns a simple success signal to the frontend AJAX script
+        return jsonify({'status': 'success'})
+    return jsonify({'status': 'error', 'reason': 'Empty message'}), 400
 
 if __name__ == '__main__':
     init_db()
