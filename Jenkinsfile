@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         APP_NAME = 'flask-app'
-        DEPLOY_SERVER = '10.0.1.56'    // app-server private IP
+        DEPLOY_SERVER = '100.26.187.5'    // app-server private IP
         DEPLOY_USER = 'ubuntu'
         DEPLOY_PATH = '/opt/two-tier-app'
     }
