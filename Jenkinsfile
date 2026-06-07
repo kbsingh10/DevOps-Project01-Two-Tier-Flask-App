@@ -26,8 +26,13 @@ pipeline {
         stage('Deploy to App Server') {
             steps {
                 echo 'Copying files and deploying on app-server...'
-                sshagent(['app-server-key']) {
-                    sh """
+            script {
+                    withCredentials([sshUserPrivateKey(
+                    credentialsId: 'app-server-key',     // ← Your credential ID
+                    keyFileVariable: 'SSH_KEY'
+                )]) {                   
+                    
+                     sh """
                         # 1. Create deploy directory using sudo, then grant ownership to the ubuntu user
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} \
                             "sudo mkdir -p ${DEPLOY_PATH} && sudo chown -R ${DEPLOY_USER}:${DEPLOY_USER} ${DEPLOY_PATH}"
@@ -45,7 +50,7 @@ pipeline {
                         "
                     """
                 }
-            }
+            
         }
     }
 
