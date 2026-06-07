@@ -23,7 +23,7 @@ pipeline {
             }
         }
 
-        stage('Deploy to App Server') {
+       stage('Deploy to App Server') {
             steps {
                 echo 'Bundling and deploying files on app-server...'
                 script {
@@ -31,10 +31,9 @@ pipeline {
                         credentialsId: 'app-server-key',
                         keyFileVariable: 'SSH_KEY'
                     )]) {                   
-                        // Using single quotes (''') prevents Groovy interpolation and secures your SSH_KEY
                         sh '''
-                            # 1. Compress workspace securely, ignoring the archive itself and suppressing live log write warnings
-                            tar --exclude='.git' --exclude='app.tar.gz' --warning=no-file-changed -czf app.tar.gz .
+                            # 1. Compress workspace, ignoring .git, and allow exit code 1 (file changed) to pass safely
+                            tar --exclude='.git' --exclude='app.tar.gz' -czf app.tar.gz . || [ $? -eq 1 ]
 
                             # 2. Ensure remote directory exists and is clean
                             ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$DEPLOY_USER"@"$DEPLOY_SERVER" \
